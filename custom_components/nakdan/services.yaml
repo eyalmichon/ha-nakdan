@@ -1,0 +1,53 @@
+get_nikud:
+  name: Get Nikud
+  description: Add nikud (Hebrew vowel points) to Hebrew text
+  fields:
+    text:
+      name: Text
+      description: Hebrew text to add nikud to
+      required: true
+      example: "שלום עולם"
+      selector:
+        text:
+    genre:
+      name: Genre
+      description: Genre of the text
+      required: false
+      default: "modern"
+      example: "modern"
+      selector:
+        select:
+          options:
+            - "modern"
+            - "rabbinic"
+            - "modernpoetry"
+            - "medievalpoetry"
+
+clear_cache:
+  name: Clear Cache
+  description: Clear the Nakdan API response cache
+
+update_config:
+  name: Update Configuration
+  description: Update Nakdan integration configuration without restart
+  fields:
+    cache_duration:
+      name: Cache Duration
+      description: Cache duration in seconds
+      required: false
+      example: 3600
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: "seconds"
+    max_cache_size:
+      name: Maximum Cache Size
+      description: Maximum number of entries to keep in cache
+      required: false
+      example: 1000
+      selector:
+        number:
+          min: 10
+          max: 100000
+          unit_of_measurement: "entries"

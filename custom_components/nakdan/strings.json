@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nakdan - Hebrew Nikud",
+        "description": "Configure the Nakdan integration.",
+        "data": {
+          "timeout": "Request timeout (seconds)",
+          "cache_duration": "Cache duration (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Nakdan API. Please check your internet connection and try again."
+    },
+    "abort": {
+      "already_configured": "Nakdan integration is already configured."
+    }
+  },
+  "services": {
+    "get_nikud": {
+      "name": "Get Hebrew Nikud",
+      "description": "Add nikud (vowel pointing) to Hebrew text using Nakdan.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "Hebrew text to add nikud to"
+        },
+        "genre": {
+          "name": "Genre",
+          "description": "Nikud genre",
+          "selector": {
+            "select": {
+              "options": [
+                "modern",
+                "rabbinic",
+                "modernpoetry",
+                "medievalpoetry"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "clear_cache": {
+      "name": "Clear Cache",
+      "description": "Clear all cached nikud results to free memory or force fresh API calls."
+    },
+    "update_config": {
+      "name": "Update Configuration",
+      "description": "Update cache duration settings.",
+      "fields": {
+        "cache_duration": {
+          "name": "Cache Duration",
+          "description": "Cache duration in seconds"
+        }
+      }
+    }
+  }
+}
