@@ -147,6 +147,47 @@ class NakdanAPI:
         _LOGGER.debug("Trimmed cache: removed %d entries to fit max size %d",
                      entries_to_remove, self._max_cache_size)
 
+    async def _make_api_request_with_retry(self, payload: dict, max_retries: int = DEFAULT_MAX_RETRIES) -> Optional[dict]:
+        """Make API request with retry logic and exponential backoff."""
+        start_time = time.time()
+
+        for attempt in range(max_retries + 1):
+            try:
+                session = await self._get_session()
+                timeout = aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
+
+                async with session.post(NAKDAN_API_URL, json=payload, headers=NAKDAN_API_HEADERS, timeout=timeout) as response:
+                    if response.status == 200:
+                        result = await response.json()
+
+                        if attempt > 0:
+                            _LOGGER.debug("API request succeeded on attempt %d/%d", attempt + 1, max_retries + 1)
+
+                        return {
+                            "api_result": result,
+                            "response_time": time.time() - start_time,
+                        }
+                    else:
+                        error_msg = f"API request failed with status {response.status}"
+                        _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
+
+            except asyncio.TimeoutError:
+                error_msg = "Timeout while calling Nakdan API"
+                _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
+            except Exception as err:
+                error_msg = f"Error calling Nakdan API: {err}"
+                _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
+
+            # Wait before retry (exponential backoff)
+            if attempt < max_retries:
+                wait_time = 0.5 * (2 ** attempt)  # 0.5s, 1s, 2s, 4s...
+                _LOGGER.debug("Waiting %s seconds before retry", wait_time)
+                await asyncio.sleep(wait_time)
+
+        # All retries failed
+        _LOGGER.error("All API request attempts failed after %d tries", max_retries + 1)
+        return None
+
     async def get_nikud(self, text: str, genre: str = "modern", max_retries: int = DEFAULT_MAX_RETRIES) -> Optional[Dict[str, Any]]:
         """Get nikud for Hebrew text with retry logic."""
 
@@ -180,6 +221,7 @@ class NakdanAPI:
         if len(self._cache) > 0 and len(self._cache) % 10 == 0:
             self._cleanup_expired_cache()
 
+        # Prepare API payload
         payload = {
             "task": "nakdan",
             "data": text,
@@ -187,52 +229,24 @@ class NakdanAPI:
             **NAKDAN_API_OPTIONS
         }
 
-        start_time = time.time()
+        # Make API request with retry logic
+        api_response = await self._make_api_request_with_retry(payload, max_retries)
 
-        # Retry loop
-        for attempt in range(max_retries + 1):
-            try:
-                session = await self._get_session()
-                timeout = aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
+        if api_response is None:
+            _LOGGER.error("Failed to get nikud for text: %s", text[:50])
+            return None
 
-                async with session.post(NAKDAN_API_URL, json=payload, headers=NAKDAN_API_HEADERS, timeout=timeout) as response:
-                    if response.status == 200:
-                        result = await response.json()
+        # Build result object
+        result_obj = {
+            "data": self.build_nikud_text(api_response["api_result"]),
+            "response_time": api_response["response_time"],
+        }
 
-                        result_obj = {
-                            "data": self.build_nikud_text(result),
-                            "response_time": time.time() - start_time,
-                            "attempts": attempt + 1
-                        }
+        # Cache the result
+        self._cache[cache_key] = (result_obj, time.time())
 
-                        # Cache the result
-                        self._cache[cache_key] = (result_obj, time.time())
-
-                        if attempt > 0:
-                            _LOGGER.info("Successfully got nikud for: %s (succeeded on attempt %d)", text[:50], attempt + 1)
-                        else:
-                            _LOGGER.debug("Successfully got nikud for: %s", text[:50])
-                        return result_obj
-                    else:
-                        error_msg = f"API request failed with status {response.status}"
-                        _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
-
-            except asyncio.TimeoutError as err:
-                error_msg = "Timeout while calling Nakdan API"
-                _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
-            except Exception as err:
-                error_msg = f"Error calling Nakdan API: {err}"
-                _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
-
-            # Wait before retry (exponential backoff)
-            if attempt < max_retries:
-                wait_time = 0.5 * (2 ** attempt)  # 0.5s, 1s, 2s, 4s...
-                _LOGGER.debug("Waiting %s seconds before retry", wait_time)
-                await asyncio.sleep(wait_time)
-
-        # All retries failed
-        _LOGGER.error("All attempts failed for nikud request: %s", text[:50])
-        return None
+        _LOGGER.debug("Successfully got nikud for: %s", text[:50])
+        return result_obj
 
     def build_nikud_text(self, api_response: List[Dict[str, Any]]) -> str:
         """Build nikud text from API response."""
