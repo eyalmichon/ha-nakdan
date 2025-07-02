@@ -5,13 +5,13 @@
         "title": "Nakdan - Hebrew Nikud",
         "description": "Configure the Nakdan integration.",
         "data": {
-          "timeout": "Request timeout (seconds)",
-          "cache_duration": "Cache duration (seconds)"
+          "cache_duration": "Cache duration (seconds)",
+          "max_cache_size": "Max cache size (number of entries)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the Nakdan API. Please check your internet connection and try again."
+      "cannot_connect": "Failed to connect to the Nakdan service. Please check your internet connection and try again."
     },
     "abort": {
       "already_configured": "Nakdan integration is already configured."
@@ -48,11 +48,15 @@
     },
     "update_config": {
       "name": "Update Configuration",
-      "description": "Update cache duration settings.",
+      "description": "Update cache duration and size settings.",
       "fields": {
         "cache_duration": {
           "name": "Cache Duration",
           "description": "Cache duration in seconds"
+        },
+        "max_cache_size": {
+          "name": "Max Cache Size",
+          "description": "Maximum number of entries to keep in cache"
         }
       }
     }
