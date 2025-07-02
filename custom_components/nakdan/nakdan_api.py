@@ -1,4 +1,4 @@
-"""API client for Nakdan service."""
+"""Client for Nakdan service."""
 import asyncio
 import hashlib
 import logging
@@ -20,7 +20,7 @@ class NakdanInvalidGenreError(NakdanError):
     """Exception raised when an invalid genre is provided."""
 
 class NakdanAPI:
-    """API client for Nakdan service."""
+    """Client for Nakdan service."""
     _instance = None
     _lock = threading.Lock()
 
@@ -30,7 +30,6 @@ class NakdanAPI:
             if not cls._instance:
                 cls._instance = super(NakdanAPI, cls).__new__(cls)
                 cls._instance._hass = None
-                cls._instance._session = None
                 cls._instance._cache = {}
                 cls._instance._cache_duration = DEFAULT_CACHE_DURATION
                 cls._instance._max_cache_size = DEFAULT_MAX_CACHE_SIZE
@@ -74,15 +73,7 @@ class NakdanAPI:
         if self._hass:
             return async_get_clientsession(self._hass)
         else:
-            if not self._session:
-                self._session = aiohttp.ClientSession()
-            return self._session
-
-    async def close(self):
-        """Close the session if we created it."""
-        if self._session:
-            await self._session.close()
-            self._session = None
+            raise HomeAssistantError("Home Assistant instance not available")
 
     def _get_cache_key(self, text: str, genre: str) -> str:
         """Generate cache key for the request."""
@@ -147,8 +138,20 @@ class NakdanAPI:
         _LOGGER.debug("Trimmed cache: removed %d entries to fit max size %d",
                      entries_to_remove, self._max_cache_size)
 
-    async def _make_api_request_with_retry(self, payload: dict, max_retries: int = DEFAULT_MAX_RETRIES) -> Optional[dict]:
-        """Make API request with retry logic and exponential backoff."""
+    def _trim_cache_by_percentage(self, percentage: float) -> None:
+        # Remove percentage of cache or minimum 1 entry to make room
+        entries_to_remove = max(1, int(self._max_cache_size * percentage))
+        oldest_keys = sorted(
+            self._cache.keys(),
+            key=lambda k: self._cache[k][1]
+        )[:entries_to_remove]
+        for key in oldest_keys:
+            del self._cache[key]
+        _LOGGER.debug("Cache size limit reached, removed %d old entries (%d%% of max size)", len(oldest_keys), percentage * 100)
+
+
+    async def _make_request_with_retry(self, payload: dict, max_retries: int = DEFAULT_MAX_RETRIES) -> Optional[dict]:
+        """Make service request with retry logic and exponential backoff."""
         start_time = time.time()
 
         for attempt in range(max_retries + 1):
@@ -161,21 +164,21 @@ class NakdanAPI:
                         result = await response.json()
 
                         if attempt > 0:
-                            _LOGGER.debug("API request succeeded on attempt %d/%d", attempt + 1, max_retries + 1)
+                            _LOGGER.debug("Service request succeeded on attempt %d/%d", attempt + 1, max_retries + 1)
 
                         return {
                             "api_result": result,
                             "response_time": time.time() - start_time,
                         }
                     else:
-                        error_msg = f"API request failed with status {response.status}"
+                        error_msg = f"Service request failed with status {response.status}"
                         _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
 
             except asyncio.TimeoutError:
-                error_msg = "Timeout while calling Nakdan API"
+                error_msg = "Timeout while calling Nakdan service"
                 _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
             except Exception as err:
-                error_msg = f"Error calling Nakdan API: {err}"
+                error_msg = f"Error calling Nakdan service: {err}"
                 _LOGGER.warning("%s (attempt %d/%d)", error_msg, attempt + 1, max_retries + 1)
 
             # Wait before retry (exponential backoff)
@@ -185,7 +188,7 @@ class NakdanAPI:
                 await asyncio.sleep(wait_time)
 
         # All retries failed
-        _LOGGER.error("All API request attempts failed after %d tries", max_retries + 1)
+        _LOGGER.error("All service request attempts failed after %d tries", max_retries + 1)
         return None
 
     async def get_nikud(self, text: str, genre: str = "modern", max_retries: int = DEFAULT_MAX_RETRIES) -> Optional[Dict[str, Any]]:
@@ -208,20 +211,13 @@ class NakdanAPI:
 
         # Enforce cache size limit to prevent memory leaks
         if len(self._cache) >= self._max_cache_size:
-            # Remove oldest entries
-            oldest_keys = sorted(
-                self._cache.keys(),
-                key=lambda k: self._cache[k][1]
-            )[:100]  # Remove 100 oldest entries
-            for key in oldest_keys:
-                del self._cache[key]
-            _LOGGER.debug("Cache size limit reached, removed %d old entries", len(oldest_keys))
+            self._trim_cache_by_percentage(0.1)
 
         # Periodically clean up expired entries (every 10th request)
         if len(self._cache) > 0 and len(self._cache) % 10 == 0:
             self._cleanup_expired_cache()
 
-        # Prepare API payload
+        # Prepare service payload
         payload = {
             "task": "nakdan",
             "data": text,
@@ -229,17 +225,17 @@ class NakdanAPI:
             **NAKDAN_API_OPTIONS
         }
 
-        # Make API request with retry logic
-        api_response = await self._make_api_request_with_retry(payload, max_retries)
+        # Make service request with retry logic
+        service_response = await self._make_request_with_retry(payload, max_retries)
 
-        if api_response is None:
+        if service_response is None:
             _LOGGER.error("Failed to get nikud for text: %s", text[:50])
             return None
 
         # Build result object
         result_obj = {
-            "data": self.build_nikud_text(api_response["api_result"]),
-            "response_time": api_response["response_time"],
+            "data": self.build_nikud_text(service_response["api_result"]),
+            "response_time": service_response["response_time"],
         }
 
         # Cache the result
@@ -248,14 +244,14 @@ class NakdanAPI:
         _LOGGER.debug("Successfully got nikud for: %s", text[:50])
         return result_obj
 
-    def build_nikud_text(self, api_response: List[Dict[str, Any]]) -> str:
-        """Build nikud text from API response."""
-        if not api_response:
+    def build_nikud_text(self, service_response: List[Dict[str, Any]]) -> str:
+        """Build nikud text from service response."""
+        if not service_response:
             return ""
 
         result_parts = []
 
-        for item in api_response:
+        for item in service_response:
             if item.get("sep"):
                 # This is a separator (space, punctuation, etc.)
                 result_parts.append(item.get("word", ""))
@@ -263,7 +259,7 @@ class NakdanAPI:
                 # This is a word with nikud options
                 options = item.get("options", [])
                 if options:
-                    result_parts.append(options[0])
+                    result_parts.append(options[0].replace("|", ""))
                 else:
                     result_parts.append(item.get("word", ""))
 

@@ -28,19 +28,17 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Validate the user input allows us to connect to the API."""
+    """Validate the user input allows us to connect to the service."""
     api = NakdanAPI()
 
     try:
-        # Test the API with a simple Hebrew word
+        # Test the service with a simple Hebrew word
         result = await api.get_nikud("שלום", "modern")
         if not result:
             raise CannotConnect
     except Exception as exc:
         _LOGGER.exception("Unexpected exception")
         raise CannotConnect from exc
-    finally:
-        await api.close()
 
     return {"title": "Nakdan - Hebrew Nikud"}
 
@@ -59,8 +57,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -73,8 +69,4 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class CannotConnect(HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Error to indicate there is invalid auth."""
+    """Error to indicate we cannot connect to the Nakdan service."""

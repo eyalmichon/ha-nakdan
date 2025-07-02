@@ -49,5 +49,5 @@ update_config:
       selector:
         number:
           min: 10
-          max: 100000
+          max: 1000000
           unit_of_measurement: "entries"

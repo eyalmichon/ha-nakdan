@@ -13,6 +13,9 @@ DEFAULT_CACHE_DURATION = 3600  # 1 hour in seconds
 DEFAULT_MAX_CACHE_SIZE = 1000  # Maximum number of cached entries
 DEFAULT_MAX_RETRIES = 1  # Number of retries on failure
 
+# Limits
+MAX_TEXT_LENGTH = 10000  # Maximum characters allowed in text input
+
 # API Configuration
 NAKDAN_API_URL = "https://nakdan-u1-0.loadbalancer.dicta.org.il/api"
 NAKDAN_API_HEADERS = {

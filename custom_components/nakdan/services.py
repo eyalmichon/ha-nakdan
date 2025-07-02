@@ -17,6 +17,7 @@ from .const import (
     CONF_CACHE_DURATION,
     CONF_MAX_CACHE_SIZE,
     GENRES,
+    MAX_TEXT_LENGTH,
 )
 from .nakdan_api import NakdanAPI
 
@@ -37,12 +38,19 @@ SERVICE_UPDATE_CONFIG_SCHEMA = vol.Schema({
 async def async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Nakdan integration."""
 
-    def _update_sensor_if_available(text: str, result: str | None = None, success: bool = True, cache_stats: dict | None = None):
+    def _update_sensor_if_available(text: str, result: str | None = None, success: bool = True, cache_stats: dict | None = None, cache_duration: int | None = None, max_cache_size: int | None = None, count_requests: bool = True):
         """Update sensor stats if sensor is available."""
         try:
             sensor = hass.data.get(DOMAIN, {}).get("sensor")
             if sensor and hasattr(sensor, 'update_stats'):
-                sensor.update_stats(text, result, success, cache_stats)
+                sensor.update_stats({
+                    "text": text,
+                    "result": result,
+                    "success": success,
+                    "cache_stats": cache_stats,
+                    "cache_duration": cache_duration,
+                    "max_cache_size": max_cache_size
+                }, count_requests)
             else:
                 _LOGGER.debug("Sensor not available for stats update")
         except Exception as err:
@@ -56,8 +64,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         # Get the singleton API client
         api = NakdanAPI()
 
+        if not text or not text.strip():
+            return {"success": False, "error": "Text cannot be empty"}
+        if len(text) > MAX_TEXT_LENGTH:
+            return {"success": False, "error": f"Text too long (maximum {MAX_TEXT_LENGTH} characters)"}
+
         try:
-            # Call the API
+            # Call the service
             result = await api.get_nikud(text=text, genre=genre)
 
             if result is None:
@@ -66,7 +79,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
                 return {
                     "success": False,
-                    "error": "Failed to get nikud from API"
+                    "error": "Failed to get nikud from service"
                 }
 
             nikud_text = result.get("data", "")
@@ -107,6 +120,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             # Clear the cache
             cleared_count = api.clear_cache()
 
+            # Update sensor with cache operation
+            _update_sensor_if_available(
+                text="Cache cleared",
+                result=f"Cleared {cleared_count} entries",
+                success=True,
+                cache_stats=api.get_cache_stats(),
+                count_requests=False
+            )
+
             _LOGGER.info("Cache cleared successfully: %d entries removed", cleared_count)
             return {
                 "success": True,
@@ -116,6 +138,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             }
 
         except Exception as err:
+            # Update sensor with failure
+            _update_sensor_if_available(
+                text="Cache clear operation",
+                result=None,
+                success=False,
+                cache_stats=api.get_cache_stats(),
+                count_requests=False
+            )
+
             _LOGGER.error("Error clearing cache: %s", err)
             return {
                 "success": False,
@@ -140,6 +171,23 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             # Get new config after update
             config_after = api.get_current_config()
 
+            # Update sensor with config operation
+            config_changes = []
+            if CONF_CACHE_DURATION in call.data:
+                config_changes.append(f"cache duration to {call.data[CONF_CACHE_DURATION]}")
+            if CONF_MAX_CACHE_SIZE in call.data:
+                config_changes.append(f"max cache size to {call.data[CONF_MAX_CACHE_SIZE]}")
+
+            _update_sensor_if_available(
+                text="Configuration updated",
+                result=f"Changed: {", ".join(config_changes)}" if config_changes else "No changes",
+                success=True,
+                cache_stats=api.get_cache_stats(),
+                cache_duration=call.data.get(CONF_CACHE_DURATION),
+                max_cache_size=call.data.get(CONF_MAX_CACHE_SIZE),
+                count_requests=False
+            )
+
             _LOGGER.info("Configuration updated successfully")
             return {
                 "success": True,
@@ -149,6 +197,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             }
 
         except Exception as err:
+            # Update sensor with failure
+            _update_sensor_if_available(
+                text="Configuration update",
+                result=None,
+                success=False,
+                cache_stats=api.get_cache_stats(),
+                count_requests=False
+            )
+
             _LOGGER.error("Error updating configuration: %s", err)
             return {
                 "success": False,

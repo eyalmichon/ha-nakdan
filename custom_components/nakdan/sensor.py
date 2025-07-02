@@ -42,6 +42,10 @@ class NakdanSensor(SensorEntity):
         self._last_update = None
         self._total_requests = 0
         self._failed_requests = 0
+
+        self._cache_duration = self._config_entry.data.get("cache_duration", 3600)
+        self._max_cache_size = self._config_entry.data.get("max_cache_size", 1000)
+
         self._cache_stats = {}
 
     @property
@@ -58,12 +62,12 @@ class NakdanSensor(SensorEntity):
             "last_update": self._last_update,
             "total_requests": self._total_requests,
             "failed_requests": self._failed_requests,
-            "success_rate": (
+            "success_rate": f"{(
                 round((self._total_requests - self._failed_requests) / self._total_requests * 100, 1)
                 if self._total_requests > 0 else 0
-            ),
-            "cache_duration": self._config_entry.data.get("cache_duration", 3600),
-            "max_cache_size": self._config_entry.data.get("max_cache_size", 1000),
+            )}%",
+            "cache_duration": f"{self._cache_duration} seconds",
+            "max_cache_size": f"{self._max_cache_size} entries",
         }
 
         # Add cache statistics if available
@@ -76,22 +80,28 @@ class NakdanSensor(SensorEntity):
 
         return attributes
 
-    def update_stats(self, text: str, result: str | None = None, success: bool = True, cache_stats: dict | None = None) -> None:
+    def update_stats(self, stats: dict = {}, count_requests: bool = True) -> None:
         """Update sensor stats."""
-        self._total_requests += 1
-        if not success:
+        if count_requests:
+            self._total_requests += 1
+        if not stats.get("success", True) and count_requests:
             self._failed_requests += 1
             self._state = "Error"
         else:
             self._state = "Ready"
 
-        self._last_text = text[:100] if text else None  # Truncate for display
-        self._last_result = result[:100] if result else None  # Truncate for display
+        self._last_text = stats.get("text", "")[:100]  # Truncate for display
+        self._last_result = stats.get("result", "")[:100]  # Truncate for display
         self._last_update = datetime.now().isoformat()
 
+        if stats.get("cache_duration"):
+            self._cache_duration = stats.get("cache_duration")
+        if stats.get("max_cache_size"):
+            self._max_cache_size = stats.get("max_cache_size")
+
         # Update cache stats if provided
-        if cache_stats:
-            self._cache_stats = cache_stats
+        if stats.get("cache_stats"):
+            self._cache_stats = stats.get("cache_stats")
 
         # Schedule an update
         self.schedule_update_ha_state()

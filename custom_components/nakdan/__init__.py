@@ -25,7 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass=hass
     )
 
-    _LOGGER.info("Nakdan API client initialized with cache_duration=%d, max_cache_size=%d",
+    _LOGGER.info("Nakdan client initialized with cache_duration=%d, max_cache_size=%d",
                  entry.data.get("cache_duration", DEFAULT_CACHE_DURATION),
                  entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE))
 
