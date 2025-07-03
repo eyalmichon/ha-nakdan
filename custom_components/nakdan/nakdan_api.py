@@ -33,8 +33,27 @@ class NakdanAPI:
                 cls._instance._cache = {}
                 cls._instance._cache_duration = DEFAULT_CACHE_DURATION
                 cls._instance._max_cache_size = DEFAULT_MAX_CACHE_SIZE
-                cls._instance._initialized = True
         return cls._instance
+
+    # Check if api is working statically
+    @staticmethod
+    async def test_api(hass: HomeAssistant) -> bool:
+        """Test if the API is working."""
+        try:
+            payload = {
+                "task": "nakdan",
+                "data": "שלום",
+                "genre": "modern",
+                **NAKDAN_API_OPTIONS
+            }
+
+            session = async_get_clientsession(hass)
+            timeout = aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
+            async with session.post(NAKDAN_API_URL, json=payload, headers=NAKDAN_API_HEADERS, timeout=timeout) as response:
+                return response.status == 200
+        except Exception as e:
+            _LOGGER.debug("API test failed: %s", e)
+            return False
 
     def update_config(self, cache_duration: int = None, max_cache_size: int = None, hass: HomeAssistant = None) -> None:
         """Update configuration settings explicitly."""

@@ -27,13 +27,12 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+async def validate_api(hass: HomeAssistant) -> dict[str, Any]:
     """Validate the user input allows us to connect to the service."""
-    api = NakdanAPI()
 
     try:
         # Test the service with a simple Hebrew word
-        result = await api.get_nikud("שלום", "modern")
+        result = await NakdanAPI.test_api(hass)
         if not result:
             raise CannotConnect
     except Exception as exc:
@@ -42,6 +41,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     return {"title": "Nakdan - Hebrew Nikud"}
 
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect to the Nakdan service."""
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Nakdan"""
@@ -52,9 +53,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
+        # If the user has already configured the integration, abort with already_configured
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+
         if user_input is not None:
             try:
-                info = await validate_input(self.hass, user_input)
+                info = await validate_api(self.hass)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
@@ -66,7 +71,3 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
-
-
-class CannotConnect(HomeAssistantError):
-    """Error to indicate we cannot connect to the Nakdan service."""
