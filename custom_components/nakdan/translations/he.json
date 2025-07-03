@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "נקדן - ניקוד בעיברית",
+        "description": "הגדרת אינטגרציית נקדן.",
+        "data": {
+          "cache_duration": "כמה זמן לשמור תוצאות ניקוד במטמון בשניות (60-86400)",
+          "max_cache_size": "מספר מקסימלי של ערכי טקסט לשמור במטמון (10-1000000)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "נכשל בחיבור לשירות נקדן. אנא בדוק את חיבור האינטרנט ונסה שוב."
+    },
+    "abort": {
+      "already_configured": "אינטגרציית נקדן כבר מוגדרת."
+    }
+  },
+  "services": {
+    "get_nikud": {
+      "name": "קבלת ניקוד בעיברית",
+      "description": "הוספת ניקוד לטקסט בעיברית באמצעות נקדן.",
+      "fields": {
+        "text": {
+          "name": "טקסט",
+          "description": "הטקסט אליו תרצה להוסיף ניקוד"
+        },
+        "genre": {
+          "name": "סגנון",
+          "description": "סגנון ניקוד",
+          "selector": {
+            "select": {
+              "options": [
+                "modern",
+                "rabbinic",
+                "modernpoetry",
+                "medievalpoetry"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "clear_cache": {
+      "name": "ניקוי מטמון",
+      "description": "ניקוי כל תוצאות הניקוד השמורות במטמון לשחרור זיכרון או לאילוץ קריאות API חדשות."
+    },
+    "update_config": {
+      "name": "עדכון הגדרות",
+      "description": "עדכון הגדרות משך זמן ומגבלת גודל המטמון.",
+      "fields": {
+        "cache_duration": {
+          "name": "משך זמן מטמון",
+          "description": "משך זמן מטמון בשניות"
+        },
+        "max_cache_size": {
+          "name": "גודל מטמון מקסימלי",
+          "description": "מספר מקסימלי של ערכים לשמור במטמון"
+        }
+      }
+    }
+  }
+}
