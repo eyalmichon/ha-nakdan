@@ -10,13 +10,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE
+from .const import DOMAIN, DEFAULT_ENABLE_CACHE_TIMEOUT, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE
 from .nakdan_api import NakdanAPI
 
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
+        vol.Optional("enable_cache_timeout", default=DEFAULT_ENABLE_CACHE_TIMEOUT): bool,
         vol.Optional("cache_duration", default=DEFAULT_CACHE_DURATION): vol.All(
             vol.Coerce(int), vol.Range(min=60, max=86400)
         ),

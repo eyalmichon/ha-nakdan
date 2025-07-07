@@ -4,6 +4,7 @@ DOMAIN = "nakdan"
 
 # Configuration
 CONF_TIMEOUT = "timeout"
+CONF_ENABLE_CACHE_TIMEOUT = "enable_cache_timeout"
 CONF_CACHE_DURATION = "cache_duration"
 CONF_MAX_CACHE_SIZE = "max_cache_size"
 
@@ -12,6 +13,7 @@ DEFAULT_TIMEOUT = 15
 DEFAULT_CACHE_DURATION = 3600  # 1 hour in seconds
 DEFAULT_MAX_CACHE_SIZE = 1000  # Maximum number of cached entries
 DEFAULT_MAX_RETRIES = 1  # Number of retries on failure
+DEFAULT_ENABLE_CACHE_TIMEOUT = False  # Enable cache timeout by default
 
 # Limits
 MAX_TEXT_LENGTH = 10000  # Maximum characters allowed in text input

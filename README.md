@@ -68,6 +68,7 @@ cache_stats:
   valid_entries: 5
   expired_entries: 0
   cache_duration: 3600
+  cache_timeout_enabled: true
 ```
 
 ### `nakdan.clear_cache`
@@ -84,6 +85,7 @@ cache_stats_before:
   valid_entries: 8
   expired_entries: 4
   cache_duration: 3600
+  cache_timeout_enabled: true
 message: "Successfully cleared 12 cache entries"
 ```
 
@@ -93,6 +95,7 @@ Updates configuration settings without restarting Home Assistant.
 
 **Parameters:**
 
+- `enable_cache_timeout` (optional): New cache timeout in seconds
 - `cache_duration` (optional): New cache duration in seconds
 - `max_cache_size` (optional): New maximum cache size
 
@@ -101,20 +104,26 @@ Updates configuration settings without restarting Home Assistant.
 ```yaml
 success: true
 config_before:
-  cache_duration: 3600
+  enable_cache_timeout: false
+  cache_duration: 60
   max_cache_size: 1000
   cache_stats:
-    total_entries: 15
-    valid_entries: 12
-    expired_entries: 3
-config_after:
-  cache_duration: 7200
-  max_cache_size: 2000
-  cache_stats:
-    total_entries: 12
-    valid_entries: 12
+    total_entries: 0
+    valid_entries: 0
     expired_entries: 0
-message: "Configuration updated successfully"
+    cache_duration: disabled
+    cache_timeout_enabled: false
+config_after:
+  enable_cache_timeout: false
+  cache_duration: 60
+  max_cache_size: 1000
+  cache_stats:
+    total_entries: 0
+    valid_entries: 0
+    expired_entries: 0
+    cache_duration: disabled
+    cache_timeout_enabled: false
+message: Configuration updated successfully
 ```
 
 ## Entities
@@ -135,6 +144,7 @@ Monitors the integration status and provides statistics:
 - `success_rate`: Success rate percentage
 - `cache_duration`: Current cache duration setting
 - `max_cache_size`: Current max cache size setting
+- `enable_cache_timeout`: Current cache timeout setting
 - `cache_total_entries`: Total entries in cache
 - `cache_valid_entries`: Number of valid (non-expired) entries
 - `cache_expired_entries`: Number of expired entries

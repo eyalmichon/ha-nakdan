@@ -4,7 +4,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 
-from .const import DOMAIN, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE
+from .const import DOMAIN, DEFAULT_ENABLE_CACHE_TIMEOUT, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,12 +20,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Configure the singleton with settings from entry
     api_client.update_config(
+        enable_cache_timeout=entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT),
         cache_duration=entry.data.get("cache_duration", DEFAULT_CACHE_DURATION),
         max_cache_size=entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE),
         hass=hass
     )
 
-    _LOGGER.info("Nakdan client initialized with cache_duration=%d, max_cache_size=%d",
+    _LOGGER.info("Nakdan client initialized with enable_cache_timeout=%s, cache_duration=%d, max_cache_size=%d",
+                 entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT),
                  entry.data.get("cache_duration", DEFAULT_CACHE_DURATION),
                  entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE))
 

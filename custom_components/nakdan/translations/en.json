@@ -5,6 +5,7 @@
         "title": "Nakdan - Hebrew Nikud",
         "description": "Configure the Nakdan integration.",
         "data": {
+          "enable_cache_timeout": "Enable automatic cache expiration (if disabled, cache will persist forever until restart)",
           "cache_duration": "How long to keep nikud results cached in seconds (60-86400)",
           "max_cache_size": "Maximum number of text entries to store in cache (10-1000000)"
         }
@@ -50,9 +51,13 @@
       "name": "Update Configuration",
       "description": "Update cache duration and size settings.",
       "fields": {
+        "enable_cache_timeout": {
+          "name": "Enable Cache Timeout",
+          "description": "Enable automatic cache expiration (if disabled, cache will persist forever until restart)"
+        },
         "cache_duration": {
           "name": "Cache Duration",
-          "description": "Cache duration in seconds"
+          "description": "Cache duration in seconds (only applies if timeout is enabled)"
         },
         "max_cache_size": {
           "name": "Max Cache Size",

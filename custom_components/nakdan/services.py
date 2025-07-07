@@ -14,6 +14,7 @@ from .const import (
     ATTR_NIKUD_TEXT,
     ATTR_RESPONSE_TIME,
     ATTR_CACHE_STATS,
+    CONF_ENABLE_CACHE_TIMEOUT,
     CONF_CACHE_DURATION,
     CONF_MAX_CACHE_SIZE,
     GENRES,
@@ -31,6 +32,7 @@ SERVICE_GET_NIKUD_SCHEMA = vol.Schema({
 SERVICE_CLEAR_CACHE_SCHEMA = vol.Schema({})
 
 SERVICE_UPDATE_CONFIG_SCHEMA = vol.Schema({
+    vol.Optional(CONF_ENABLE_CACHE_TIMEOUT): cv.boolean,
     vol.Optional(CONF_CACHE_DURATION): cv.positive_int,
     vol.Optional(CONF_MAX_CACHE_SIZE): vol.All(cv.positive_int, vol.Range(min=10, max=100000)),
 })
@@ -164,6 +166,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
             # Update configuration
             api.update_config(
+                enable_cache_timeout=call.data.get(CONF_ENABLE_CACHE_TIMEOUT),
                 cache_duration=call.data.get(CONF_CACHE_DURATION),
                 max_cache_size=call.data.get(CONF_MAX_CACHE_SIZE)
             )
@@ -173,6 +176,9 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
             # Update sensor with config operation
             config_changes = []
+            if CONF_ENABLE_CACHE_TIMEOUT in call.data:
+                timeout_status = "enabled" if call.data[CONF_ENABLE_CACHE_TIMEOUT] else "disabled"
+                config_changes.append(f"cache timeout {timeout_status}")
             if CONF_CACHE_DURATION in call.data:
                 config_changes.append(f"cache duration to {call.data[CONF_CACHE_DURATION]}")
             if CONF_MAX_CACHE_SIZE in call.data:

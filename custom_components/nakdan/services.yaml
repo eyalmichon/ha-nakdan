@@ -31,9 +31,16 @@ update_config:
   name: Update Configuration
   description: Update Nakdan integration configuration without restart
   fields:
+    enable_cache_timeout:
+      name: Enable Cache Timeout
+      description: Enable automatic cache expiration (if disabled, cache will persist forever)
+      required: false
+      default: false
+      selector:
+        boolean:
     cache_duration:
       name: Cache Duration
-      description: Cache duration in seconds
+      description: Cache duration in seconds (only applies if timeout is enabled)
       required: false
       example: 3600
       selector:
