@@ -6,7 +6,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
@@ -50,6 +50,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return OptionsFlowHandler(config_entry)
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
@@ -71,4 +79,48 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        )
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for Nakdan integration."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            # Update the config entry data (API will read from it automatically)
+            new_data = {**self.config_entry.data, **user_input}
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
+
+            return self.async_create_entry(title="", data={})
+
+        # Show form with current values
+        options_schema = vol.Schema(
+            {
+                vol.Optional(
+                    "enable_cache_timeout",
+                    default=self.config_entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT)
+                ): bool,
+                vol.Optional(
+                    "cache_duration",
+                    default=self.config_entry.data.get("cache_duration", DEFAULT_CACHE_DURATION)
+                ): vol.All(vol.Coerce(int), vol.Range(min=60, max=86400)),
+                vol.Optional(
+                    "max_cache_size",
+                    default=self.config_entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE)
+                ): vol.All(vol.Coerce(int), vol.Range(min=10, max=1000000)),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=options_schema,
         )

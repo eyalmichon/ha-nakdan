@@ -9,7 +9,8 @@ import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from .const import NAKDAN_API_URL, NAKDAN_API_HEADERS, NAKDAN_API_OPTIONS, GENRES, DEFAULT_TIMEOUT, DEFAULT_ENABLE_CACHE_TIMEOUT, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE, DEFAULT_MAX_RETRIES
+from homeassistant.config_entries import ConfigEntry
+from .const import NAKDAN_API_URL, NAKDAN_API_HEADERS, NAKDAN_API_OPTIONS, GENRES, DEFAULT_TIMEOUT, DEFAULT_ENABLE_CACHE_TIMEOUT, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE, DEFAULT_MAX_RETRIES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,9 +32,6 @@ class NakdanAPI:
                 cls._instance = super(NakdanAPI, cls).__new__(cls)
                 cls._instance._hass = None
                 cls._instance._cache = {}
-                cls._instance._enable_cache_timeout = DEFAULT_ENABLE_CACHE_TIMEOUT
-                cls._instance._cache_duration = DEFAULT_CACHE_DURATION
-                cls._instance._max_cache_size = DEFAULT_MAX_CACHE_SIZE
         return cls._instance
 
     # Check if api is working statically
@@ -56,45 +54,47 @@ class NakdanAPI:
             _LOGGER.debug("API test failed: %s", e)
             return False
 
-    def update_config(self, enable_cache_timeout: bool = None, cache_duration: int = None, max_cache_size: int = None, hass: HomeAssistant = None) -> None:
-        """Update configuration settings explicitly."""
-        if enable_cache_timeout is not None:
-            old_timeout = self._enable_cache_timeout
-            self._enable_cache_timeout = enable_cache_timeout
-            _LOGGER.info("Updated cache timeout enabled from %s to %s", old_timeout, enable_cache_timeout)
+    def set_hass(self, hass: HomeAssistant) -> None:
+        """Set Home Assistant instance reference."""
+        self._hass = hass
+        _LOGGER.debug("Updated Home Assistant instance reference")
 
-            # If timeout was disabled and now enabled, clean up expired entries
-            if not old_timeout and enable_cache_timeout:
-                self._cleanup_expired_cache()
+    def _get_config_entry(self) -> Optional[ConfigEntry]:
+        """Get the first Nakdan config entry."""
+        if not self._hass:
+            return None
 
-        if cache_duration is not None:
-            old_duration = self._cache_duration
-            self._cache_duration = cache_duration
-            _LOGGER.info("Updated cache duration from %d to %d seconds", old_duration, cache_duration)
+        entries = self._hass.config_entries.async_entries(DOMAIN)
+        return entries[0] if entries else None
 
-            # If cache duration is shorter, clean up expired entries immediately
-            if cache_duration < old_duration:
-                self._cleanup_expired_cache()
+    def _get_config_value(self, key: str, default: Any) -> Any:
+        """Get configuration value from config entry."""
+        entry = self._get_config_entry()
+        if not entry:
+            return default
+        return entry.data.get(key, default)
 
-        if max_cache_size is not None:
-            old_size = self._max_cache_size
-            self._max_cache_size = max_cache_size
-            _LOGGER.info("Updated max cache size from %d to %d entries", old_size, max_cache_size)
+    @property
+    def enable_cache_timeout(self) -> bool:
+        """Get cache timeout enabled setting from config entry."""
+        return self._get_config_value("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT)
 
-            # If new size is smaller, trim cache immediately
-            if max_cache_size < old_size and len(self._cache) > max_cache_size:
-                self._trim_cache_to_size()
+    @property
+    def cache_duration(self) -> int:
+        """Get cache duration setting from config entry."""
+        return self._get_config_value("cache_duration", DEFAULT_CACHE_DURATION)
 
-        if hass is not None:
-            self._hass = hass
-            _LOGGER.debug("Updated Home Assistant instance reference")
+    @property
+    def max_cache_size(self) -> int:
+        """Get max cache size setting from config entry."""
+        return self._get_config_value("max_cache_size", DEFAULT_MAX_CACHE_SIZE)
 
     def get_current_config(self) -> Dict[str, Any]:
         """Get current configuration."""
         return {
-            "enable_cache_timeout": self._enable_cache_timeout,
-            "cache_duration": self._cache_duration,
-            "max_cache_size": self._max_cache_size,
+            "enable_cache_timeout": self.enable_cache_timeout,
+            "cache_duration": self.cache_duration,
+            "max_cache_size": self.max_cache_size,
             "cache_stats": self.get_cache_stats(),
         }
 
@@ -113,19 +113,19 @@ class NakdanAPI:
 
     def _is_cache_valid(self, timestamp: float) -> bool:
         """Check if cache entry is still valid."""
-        if not self._enable_cache_timeout:
+        if not self.enable_cache_timeout:
             return True  # Cache never expires if timeout is disabled
-        return time.time() - timestamp < self._cache_duration
+        return time.time() - timestamp < self.cache_duration
 
     def _cleanup_expired_cache(self) -> None:
         """Remove expired entries from cache."""
-        if not self._enable_cache_timeout:
+        if not self.enable_cache_timeout:
             return  # No cleanup needed if timeout is disabled
 
         current_time = time.time()
         expired_keys = [
             key for key, (_, timestamp) in self._cache.items()
-            if current_time - timestamp >= self._cache_duration
+            if current_time - timestamp >= self.cache_duration
         ]
         for key in expired_keys:
             del self._cache[key]
@@ -142,19 +142,19 @@ class NakdanAPI:
 
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
-        if not self._enable_cache_timeout:
+        if not self.enable_cache_timeout:
             return {
                 "total_entries": len(self._cache),
                 "valid_entries": len(self._cache),
                 "expired_entries": 0,
-                "cache_duration": "disabled",
+                "cache_duration": "unlimited",
                 "cache_timeout_enabled": False,
             }
 
         current_time = time.time()
         valid_entries = sum(
             1 for _, timestamp in self._cache.values()
-            if current_time - timestamp < self._cache_duration
+            if current_time - timestamp < self.cache_duration
         )
         expired_entries = len(self._cache) - valid_entries
 
@@ -162,16 +162,16 @@ class NakdanAPI:
             "total_entries": len(self._cache),
             "valid_entries": valid_entries,
             "expired_entries": expired_entries,
-            "cache_duration": self._cache_duration,
+            "cache_duration": self.cache_duration,
             "cache_timeout_enabled": True,
         }
 
     def _trim_cache_to_size(self) -> None:
         """Trim cache to max size by removing oldest entries."""
-        if len(self._cache) <= self._max_cache_size:
+        if len(self._cache) <= self.max_cache_size:
             return
 
-        entries_to_remove = len(self._cache) - self._max_cache_size
+        entries_to_remove = len(self._cache) - self.max_cache_size
         oldest_keys = sorted(
             self._cache.keys(),
             key=lambda k: self._cache[k][1]
@@ -181,11 +181,11 @@ class NakdanAPI:
             del self._cache[key]
 
         _LOGGER.debug("Trimmed cache: removed %d entries to fit max size %d",
-                     entries_to_remove, self._max_cache_size)
+                     entries_to_remove, self.max_cache_size)
 
     def _trim_cache_by_percentage(self, percentage: float) -> None:
         # Remove percentage of cache or minimum 1 entry to make room
-        entries_to_remove = max(1, int(self._max_cache_size * percentage))
+        entries_to_remove = max(1, int(self.max_cache_size * percentage))
         oldest_keys = sorted(
             self._cache.keys(),
             key=lambda k: self._cache[k][1]
@@ -193,7 +193,6 @@ class NakdanAPI:
         for key in oldest_keys:
             del self._cache[key]
         _LOGGER.debug("Cache size limit reached, removed %d old entries (%d%% of max size)", len(oldest_keys), percentage * 100)
-
 
     async def _make_request_with_retry(self, payload: dict, max_retries: int = DEFAULT_MAX_RETRIES) -> Optional[dict]:
         """Make service request with retry logic and exponential backoff."""
@@ -255,11 +254,11 @@ class NakdanAPI:
                 del self._cache[cache_key]
 
         # Enforce cache size limit to prevent memory leaks
-        if len(self._cache) >= self._max_cache_size:
+        if len(self._cache) >= self.max_cache_size:
             self._trim_cache_by_percentage(0.1)
 
         # Periodically clean up expired entries (every 10th request) only if timeout is enabled
-        if self._enable_cache_timeout and len(self._cache) > 0 and len(self._cache) % 10 == 0:
+        if self.enable_cache_timeout and len(self._cache) > 0 and len(self._cache) % 10 == 0:
             self._cleanup_expired_cache()
 
         # Prepare service payload

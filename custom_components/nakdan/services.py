@@ -8,15 +8,11 @@ from .const import (
     DOMAIN,
     SERVICE_GET_NIKUD,
     SERVICE_CLEAR_CACHE,
-    SERVICE_UPDATE_CONFIG,
     ATTR_TEXT,
     ATTR_ORIGINAL_TEXT,
     ATTR_NIKUD_TEXT,
     ATTR_RESPONSE_TIME,
     ATTR_CACHE_STATS,
-    CONF_ENABLE_CACHE_TIMEOUT,
-    CONF_CACHE_DURATION,
-    CONF_MAX_CACHE_SIZE,
     GENRES,
     MAX_TEXT_LENGTH,
 )
@@ -31,16 +27,10 @@ SERVICE_GET_NIKUD_SCHEMA = vol.Schema({
 
 SERVICE_CLEAR_CACHE_SCHEMA = vol.Schema({})
 
-SERVICE_UPDATE_CONFIG_SCHEMA = vol.Schema({
-    vol.Optional(CONF_ENABLE_CACHE_TIMEOUT): cv.boolean,
-    vol.Optional(CONF_CACHE_DURATION): cv.positive_int,
-    vol.Optional(CONF_MAX_CACHE_SIZE): vol.All(cv.positive_int, vol.Range(min=10, max=100000)),
-})
-
 async def async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Nakdan integration."""
 
-    def _update_sensor_if_available(text: str, result: str | None = None, success: bool = True, cache_stats: dict | None = None, cache_duration: int | None = None, max_cache_size: int | None = None, count_requests: bool = True):
+    def _update_sensor_if_available(text: str, result: str | None = None, success: bool = True, cache_stats: dict | None = None, count_requests: bool = True):
         """Update sensor stats if sensor is available."""
         try:
             sensor = hass.data.get(DOMAIN, {}).get("sensor")
@@ -50,8 +40,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                     "result": result,
                     "success": success,
                     "cache_stats": cache_stats,
-                    "cache_duration": cache_duration,
-                    "max_cache_size": max_cache_size
                 }, count_requests)
             else:
                 _LOGGER.debug("Sensor not available for stats update")
@@ -155,69 +143,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 "error": str(err)
             }
 
-    async def handle_update_config(call: ServiceCall) -> ServiceResponse:
-        """Handle the update_config service call."""
-        # Get the singleton API client
-        api = NakdanAPI()
-
-        try:
-            # Get current config before update
-            config_before = api.get_current_config()
-
-            # Update configuration
-            api.update_config(
-                enable_cache_timeout=call.data.get(CONF_ENABLE_CACHE_TIMEOUT),
-                cache_duration=call.data.get(CONF_CACHE_DURATION),
-                max_cache_size=call.data.get(CONF_MAX_CACHE_SIZE)
-            )
-
-            # Get new config after update
-            config_after = api.get_current_config()
-
-            # Update sensor with config operation
-            config_changes = []
-            if CONF_ENABLE_CACHE_TIMEOUT in call.data:
-                timeout_status = "enabled" if call.data[CONF_ENABLE_CACHE_TIMEOUT] else "disabled"
-                config_changes.append(f"cache timeout {timeout_status}")
-            if CONF_CACHE_DURATION in call.data:
-                config_changes.append(f"cache duration to {call.data[CONF_CACHE_DURATION]}")
-            if CONF_MAX_CACHE_SIZE in call.data:
-                config_changes.append(f"max cache size to {call.data[CONF_MAX_CACHE_SIZE]}")
-
-            _update_sensor_if_available(
-                text="Configuration updated",
-                result=f"Changed: {", ".join(config_changes)}" if config_changes else "No changes",
-                success=True,
-                cache_stats=api.get_cache_stats(),
-                cache_duration=call.data.get(CONF_CACHE_DURATION),
-                max_cache_size=call.data.get(CONF_MAX_CACHE_SIZE),
-                count_requests=False
-            )
-
-            _LOGGER.info("Configuration updated successfully")
-            return {
-                "success": True,
-                "config_before": config_before,
-                "config_after": config_after,
-                "message": "Configuration updated successfully"
-            }
-
-        except Exception as err:
-            # Update sensor with failure
-            _update_sensor_if_available(
-                text="Configuration update",
-                result=None,
-                success=False,
-                cache_stats=api.get_cache_stats(),
-                count_requests=False
-            )
-
-            _LOGGER.error("Error updating configuration: %s", err)
-            return {
-                "success": False,
-                "error": str(err)
-            }
-
     # Register the services
     hass.services.async_register(
         DOMAIN,
@@ -232,14 +157,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_CLEAR_CACHE,
         handle_clear_cache,
         schema=SERVICE_CLEAR_CACHE_SCHEMA,
-        supports_response=SupportsResponse.ONLY,
-    )
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_UPDATE_CONFIG,
-        handle_update_config,
-        schema=SERVICE_UPDATE_CONFIG_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
 

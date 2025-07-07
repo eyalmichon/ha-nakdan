@@ -4,7 +4,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 
-from .const import DOMAIN, DEFAULT_ENABLE_CACHE_TIMEOUT, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,18 +18,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from .nakdan_api import NakdanAPI
     api_client = NakdanAPI()
 
-    # Configure the singleton with settings from entry
-    api_client.update_config(
-        enable_cache_timeout=entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT),
-        cache_duration=entry.data.get("cache_duration", DEFAULT_CACHE_DURATION),
-        max_cache_size=entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE),
-        hass=hass
-    )
+    # Set the Home Assistant instance
+    api_client.set_hass(hass)
 
-    _LOGGER.info("Nakdan client initialized with enable_cache_timeout=%s, cache_duration=%d, max_cache_size=%d",
-                 entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT),
-                 entry.data.get("cache_duration", DEFAULT_CACHE_DURATION),
-                 entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE))
+    _LOGGER.info("Nakdan client initialized")
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -54,7 +46,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if len(entries) <= 1:  # This entry is being removed
             hass.services.async_remove(DOMAIN, "get_nikud")
             hass.services.async_remove(DOMAIN, "clear_cache")
-            hass.services.async_remove(DOMAIN, "update_config")
 
     return unload_ok
 

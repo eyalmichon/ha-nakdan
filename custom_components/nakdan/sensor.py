@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, DEFAULT_ENABLE_CACHE_TIMEOUT, DEFAULT_CACHE_DURATION, DEFAULT_MAX_CACHE_SIZE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,16 +42,27 @@ class NakdanSensor(SensorEntity):
         self._last_update = None
         self._total_requests = 0
         self._failed_requests = 0
-
-        self._cache_duration = self._config_entry.data.get("cache_duration", 3600)
-        self._max_cache_size = self._config_entry.data.get("max_cache_size", 1000)
-
         self._cache_stats = {}
 
     @property
     def state(self) -> str:
         """Return the state of the sensor."""
         return self._state
+
+    @property
+    def enable_cache_timeout(self) -> bool:
+        """Get cache timeout setting from config entry."""
+        return self._config_entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT)
+
+    @property
+    def cache_duration(self) -> int:
+        """Get cache duration setting from config entry."""
+        return self._config_entry.data.get("cache_duration", DEFAULT_CACHE_DURATION)
+
+    @property
+    def max_cache_size(self) -> int:
+        """Get max cache size setting from config entry."""
+        return self._config_entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -66,8 +77,9 @@ class NakdanSensor(SensorEntity):
                 round((self._total_requests - self._failed_requests) / self._total_requests * 100, 1)
                 if self._total_requests > 0 else 0
             )}%",
-            "cache_duration": f"{self._cache_duration} seconds",
-            "max_cache_size": f"{self._max_cache_size} entries",
+            "enable_cache_timeout": self.enable_cache_timeout,
+            "cache_duration": f"{self.cache_duration} seconds",
+            "max_cache_size": f"{self.max_cache_size} entries",
         }
 
         # Add cache statistics if available
@@ -93,11 +105,6 @@ class NakdanSensor(SensorEntity):
         self._last_text = stats.get("text", "")[:100]  # Truncate for display
         self._last_result = stats.get("result", "")[:100]  # Truncate for display
         self._last_update = datetime.now().isoformat()
-
-        if stats.get("cache_duration"):
-            self._cache_duration = stats.get("cache_duration")
-        if stats.get("max_cache_size"):
-            self._max_cache_size = stats.get("max_cache_size")
 
         # Update cache stats if provided
         if stats.get("cache_stats"):

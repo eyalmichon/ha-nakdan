@@ -42,7 +42,6 @@ GENRES = [
 # Service names
 SERVICE_GET_NIKUD = "get_nikud"
 SERVICE_CLEAR_CACHE = "clear_cache"
-SERVICE_UPDATE_CONFIG = "update_config"
 
 # Attributes
 ATTR_TEXT = "text"
