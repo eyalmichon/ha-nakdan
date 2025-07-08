@@ -4,7 +4,7 @@
 
 # Nakdan - Hebrew Nikud Integration for Home Assistant
 
-A custom Home Assistant integration that adds Hebrew nikud (vowel pointing) to text. This integration provides a persistent, cached solution with intelligent caching and multiple text genre support. This is very for Text to Speech (TTS) applications.
+A custom Home Assistant integration that adds Hebrew nikud (vowel pointing) to text. This integration provides a persistent, cached solution with intelligent caching and multiple text genre support. This is very useful for Text to Speech (TTS) applications.
 
 ## Features
 
