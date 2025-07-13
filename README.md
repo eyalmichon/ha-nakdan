@@ -10,11 +10,12 @@ A custom Home Assistant integration that adds Hebrew nikud (vowel pointing) to t
 
 - **Add nikud to Hebrew text** using a professional Hebrew processing service
 - **Intelligent caching** with hash-based keys to minimize service calls and improve performance
+- **Flexible cache expiration** - choose between automatic timeout or persistent cache
 - **Multiple text genres** support (modern, rabbinic, modernpoetry, medievalpoetry)
-- **Configurable cache settings** (duration and maximum size)
+- **Configurable cache settings** (duration, maximum size, and timeout behavior)
 - **Status monitoring** through sensor entities with detailed statistics
 - **Service responses** with detailed information and cache statistics
-- **Automatic cache cleanup** of expired entries
+- **Automatic cache cleanup** of expired entries (when timeout is enabled)
 
 ## Installation
 
@@ -40,10 +41,15 @@ A custom Home Assistant integration that adds Hebrew nikud (vowel pointing) to t
 
 ## Configuration
 
-The integration can be configured through the Home Assistant UI when you add the integration and later through update_config service:
+The integration can be configured through the Home Assistant UI when you add the integration:
 
+- **Enable Cache Timeout**: Enable automatic cache expiration (default: enabled)
+  - When **enabled**: Cache entries expire after the specified duration
+  - When **disabled**: Cache entries persist forever (only limited by max cache size)
 - **Cache Duration**: How long to cache results in seconds (default: 3600 = 1 hour, range: 60-86400)
+  - Only applies when cache timeout is enabled
 - **Max Cache Size**: Maximum number of cached entries (default: 1000, range: 10-1000000)
+  - Always applies regardless of timeout setting
 
 ## Services
 
@@ -89,43 +95,6 @@ cache_stats_before:
 message: "Successfully cleared 12 cache entries"
 ```
 
-### `nakdan.update_config`
-
-Updates configuration settings without restarting Home Assistant.
-
-**Parameters:**
-
-- `enable_cache_timeout` (optional): New cache timeout in seconds
-- `cache_duration` (optional): New cache duration in seconds
-- `max_cache_size` (optional): New maximum cache size
-
-**Response:**
-
-```yaml
-success: true
-config_before:
-  enable_cache_timeout: false
-  cache_duration: 60
-  max_cache_size: 1000
-  cache_stats:
-    total_entries: 0
-    valid_entries: 0
-    expired_entries: 0
-    cache_duration: disabled
-    cache_timeout_enabled: false
-config_after:
-  enable_cache_timeout: false
-  cache_duration: 60
-  max_cache_size: 1000
-  cache_stats:
-    total_entries: 0
-    valid_entries: 0
-    expired_entries: 0
-    cache_duration: disabled
-    cache_timeout_enabled: false
-message: Configuration updated successfully
-```
-
 ## Entities
 
 ### `sensor.nakdan_status`
@@ -154,7 +123,6 @@ Monitors the integration status and provides statistics:
 ### Basic Automation Example
 
 #TODO: Add examples
-
 
 ## Troubleshooting
 

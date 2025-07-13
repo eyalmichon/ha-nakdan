@@ -42,17 +42,7 @@
         },
         "genre": {
           "name": "Genre",
-          "description": "Nikud genre",
-          "selector": {
-            "select": {
-              "options": [
-                "modern",
-                "rabbinic",
-                "modernpoetry",
-                "medievalpoetry"
-              ]
-            }
-          }
+          "description": "Nikud genre"
         }
       }
     },

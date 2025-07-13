@@ -42,17 +42,7 @@
         },
         "genre": {
           "name": "סגנון",
-          "description": "סגנון ניקוד",
-          "selector": {
-            "select": {
-              "options": [
-                "modern",
-                "rabbinic",
-                "modernpoetry",
-                "medievalpoetry"
-              ]
-            }
-          }
+          "description": "סגנון ניקוד"
         }
       }
     },
