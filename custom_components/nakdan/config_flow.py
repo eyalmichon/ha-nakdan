@@ -15,17 +15,31 @@ from .nakdan_api import NakdanAPI
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Optional("enable_cache_timeout", default=DEFAULT_ENABLE_CACHE_TIMEOUT): bool,
-        vol.Optional("cache_duration", default=DEFAULT_CACHE_DURATION): vol.All(
-            vol.Coerce(int), vol.Range(min=60, max=86400)
-        ),
-        vol.Optional("max_cache_size", default=DEFAULT_MAX_CACHE_SIZE): vol.All(
-            vol.Coerce(int), vol.Range(min=10, max=1000000)
-        ),
-    }
-)
+# STEP_USER_DATA_SCHEMA = vol.Schema(
+#     {
+#         vol.Optional("enable_cache_timeout", default=DEFAULT_ENABLE_CACHE_TIMEOUT): bool,
+#         vol.Optional("cache_duration", default=DEFAULT_CACHE_DURATION): vol.All(
+#             vol.Coerce(int), vol.Range(min=60, max=86400)
+#         ),
+#         vol.Optional("max_cache_size", default=DEFAULT_MAX_CACHE_SIZE): vol.All(
+#             vol.Coerce(int), vol.Range(min=10, max=1000000)
+#         ),
+#     }
+# )
+
+def get_options_schema(config_entry: config_entries.ConfigEntry | None = None) -> vol.Schema:
+    """Get the options schema for the config entry."""
+    return vol.Schema(
+        {
+            vol.Optional("enable_cache_timeout", default=config_entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT) if config_entry else DEFAULT_ENABLE_CACHE_TIMEOUT): bool,
+            vol.Optional("cache_duration", default=config_entry.data.get("cache_duration", DEFAULT_CACHE_DURATION) if config_entry else DEFAULT_CACHE_DURATION): vol.All(
+                vol.Coerce(int), vol.Range(min=60, max=86400)
+            ),
+            vol.Optional("max_cache_size", default=config_entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE) if config_entry else DEFAULT_MAX_CACHE_SIZE): vol.All(
+                vol.Coerce(int), vol.Range(min=10, max=1000000)
+            ),
+        }
+    )
 
 
 async def validate_api(hass: HomeAssistant) -> dict[str, Any]:
@@ -52,11 +66,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
+    def async_get_options_flow(config_entry):
         """Create the options flow."""
-        return OptionsFlowHandler(config_entry)
+        return OptionsFlowHandler()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
@@ -77,21 +89,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(title=info["title"], data=user_input)
 
-        return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=get_options_schema(), errors=errors)
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for Nakdan integration."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        super().__init__()
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
             # Update the config entry data (API will read from it automatically)
@@ -100,25 +104,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 self.config_entry, data=new_data
             )
 
+            # Reload the config entry to apply the new settings
+            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
             return self.async_create_entry(title="", data={})
 
         # Show form with current values
-        options_schema = vol.Schema(
-            {
-                vol.Optional(
-                    "enable_cache_timeout",
-                    default=self.config_entry.data.get("enable_cache_timeout", DEFAULT_ENABLE_CACHE_TIMEOUT)
-                ): bool,
-                vol.Optional(
-                    "cache_duration",
-                    default=self.config_entry.data.get("cache_duration", DEFAULT_CACHE_DURATION)
-                ): vol.All(vol.Coerce(int), vol.Range(min=60, max=86400)),
-                vol.Optional(
-                    "max_cache_size",
-                    default=self.config_entry.data.get("max_cache_size", DEFAULT_MAX_CACHE_SIZE)
-                ): vol.All(vol.Coerce(int), vol.Range(min=10, max=1000000)),
-            }
-        )
+        options_schema = get_options_schema(self.config_entry)
 
         return self.async_show_form(
             step_id="init",
